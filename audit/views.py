@@ -23,8 +23,8 @@ def create_energy_device(request):
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data, status=201)
+    print(serializer.errors)
     return Response(serializer.errors, status=400)
-
 
 
 @api_view(['POST'])
@@ -32,6 +32,7 @@ def create_energy_audit(request):
     if request.method == 'POST':
         facility_id = request.data.get( 'facility')
         devices_data = request.data.get('devices')
+        devices_data = devices_data[0]
         #operation_hours = serializer.validated_data['operation_hours']
         
         print(facility_id,devices_data)
@@ -56,7 +57,7 @@ def create_energy_audit(request):
             audit_result = calculate_energy_audit(facility_id, devices_data, operation_hours)
             print(audit_result)
             
-            serializer.save(audit_result=audit_result)
+            #serializer.save(audit_result=audit_result)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -73,7 +74,7 @@ def calculate_energy_audit(facility_id, devices_data, operation_hours):
             energy_device=EnergyDevice.objects.get(id=device)
             
             device_rating = energy_device.rating
-            device_operation_hours = device_data['operation_hours']
+            device_operation_hours = int(device_data['operation_hours'])
             total_energy_usage += device_operation_hours * device_rating
 
         # Create the energy audit record in the database
@@ -101,4 +102,34 @@ def get_audits(request):
 def get_devices(request):
     audits=EnergyDevice.objects.filter(user=request.user)
     serializer = EnergyDeviceSerializer(audits, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['Get'])
+@permission_classes([IsAuthenticated])
+def get_facilities(request):
+    facility=Facility.objects.filter(user=request.user)
+    serializer = FacilitySerializer(facility, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def get_facilities_devices(request):
+    
+    facility=request.data.get('facility')
+    
+    devices=EnergyDevice.objects.filter(facility=facility,user=request.user)
+    serializer = EnergyDeviceSerializer(devices, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def get_facilities_audits(request):
+    
+    facility=request.data.get('facility')
+    
+    audits=EnergyAudit.objects.filter(facility=facility,user=request.user)
+    serializer = EnergyAuditSerializer(audits, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
